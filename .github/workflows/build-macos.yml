@@ -1,0 +1,40 @@
+name: Build GeistPad macOS VST3
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'CMakeLists.txt'
+      - 'Source/**'
+      - '.github/workflows/build-macos.yml'
+jobs:
+  macos-vst3:
+    runs-on: macos-15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: 8.0.10
+          path: JUCE
+      - name: Configure
+        run: cmake -S . -B build -G Xcode -DJUCE_DIR="$GITHUB_WORKSPACE/JUCE" -DCMAKE_OSX_ARCHITECTURES=arm64 -DCMAKE_OSX_DEPLOYMENT_TARGET=14.0
+      - name: Build
+        run: cmake --build build --config Release --target GeistPad_VST3 --parallel 3
+      - name: Package VST3
+        run: |
+          mkdir -p dist
+          find build -name "GeistPad.vst3" -type d -print
+          PLUGIN=$(find build -name "GeistPad.vst3" -type d | head -n 1)
+          test -n "$PLUGIN"
+          ditto "$PLUGIN" dist/GeistPad.vst3
+          cd dist
+          zip -qr ../GeistPad-macOS-arm64.zip GeistPad.vst3
+      - name: Upload VST3
+        uses: actions/upload-artifact@v4
+        with:
+          name: GeistPad-macOS-arm64
+          path: GeistPad-macOS-arm64.zip
+          if-no-files-found: error
